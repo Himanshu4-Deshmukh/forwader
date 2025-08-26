@@ -17,6 +17,18 @@ jobs:
           distribution: "temurin"
           java-version: "17"
 
+      - name: Verify and Force Java 17
+        run: |
+          # Force Java 17 environment
+          export JAVA_HOME=$JAVA_HOME_17_X64
+          export PATH=$JAVA_HOME/bin:$PATH
+          echo "JAVA_HOME=$JAVA_HOME_17_X64" >> $GITHUB_ENV
+          echo "$JAVA_HOME_17_X64/bin" >> $GITHUB_PATH
+
+          # Verify Java version
+          java -version
+          echo "JAVA_HOME: $JAVA_HOME"
+
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
@@ -56,9 +68,16 @@ jobs:
 
       - name: Build APK
         run: |
+          # Ensure Java 17 is used for the build process
+          export JAVA_HOME=$JAVA_HOME_17_X64
+          export PATH=$JAVA_HOME/bin:$PATH
           export ANDROID_SDK_ROOT=$HOME/.buildozer/android/platform/android-sdk
           export ANDROID_HOME=$HOME/.buildozer/android/platform/android-sdk
-          export PATH=$PATH:$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$ANDROID_SDK_ROOT/tools/bin
+
+          # Final verification of Java version
+          echo "Final Java version check:"
+          java -version
+          echo "JAVA_HOME: $JAVA_HOME"
 
           # Accept any remaining licenses during build
           echo "y" | buildozer android debug
