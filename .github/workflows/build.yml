@@ -17,153 +17,84 @@ jobs:
           distribution: "temurin"
           java-version: "17"
 
+      - name: Verify and Force Java 17
+        run: |
+          # Force Java 17 environment
+          export JAVA_HOME=$JAVA_HOME_17_X64
+          export PATH=$JAVA_HOME/bin:$PATH
+          echo "JAVA_HOME=$JAVA_HOME_17_X64" >> $GITHUB_ENV
+          echo "$JAVA_HOME_17_X64/bin" >> $GITHUB_PATH
+
+          # Verify Java version
+          java -version
+          echo "JAVA_HOME: $JAVA_HOME"
+
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
           python-version: "3.9"
 
-      - name: Install System Dependencies
+      - name: Install Build Tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y \
-            build-essential \
-            git \
-            zip \
-            unzip \
-            python3-pip \
-            autotools-dev \
-            autoconf \
-            automake \
-            libtool \
-            pkg-config \
-            zlib1g-dev \
-            libncurses5-dev \
-            libncursesw5-dev \
-            libtinfo5 \
-            cmake \
-            libffi-dev \
-            libssl-dev \
-            openjdk-17-jdk
-
-      - name: Setup Environment Variables
-        run: |
-          echo "JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64" >> $GITHUB_ENV
-          echo "/usr/lib/jvm/java-17-openjdk-amd64/bin" >> $GITHUB_PATH
-          echo "ANDROID_SDK_ROOT=$HOME/.buildozer/android/platform/android-sdk" >> $GITHUB_ENV
-          echo "ANDROID_HOME=$HOME/.buildozer/android/platform/android-sdk" >> $GITHUB_ENV
-          echo "ANDROID_NDK_HOME=$HOME/.buildozer/android/platform/android-ndk-r25b" >> $GITHUB_ENV
-          echo "NDK_API=21" >> $GITHUB_ENV
-
-      - name: Install Python Dependencies
-        run: |
-          python3 -m pip install --upgrade pip setuptools wheel
-          pip install --upgrade cython==0.29.33
+          sudo apt-get install -y build-essential git zip unzip python3-pip
+          python3 -m pip install --upgrade pip
+          pip install cython
           pip install buildozer
-          pip install scapy pyserial kivy
 
       - name: Cache Buildozer global directory
         uses: actions/cache@v3
         with:
           path: ~/.buildozer
-          key: buildozer-global-${{ hashFiles('buildozer.spec') }}-v2
+          key: buildozer-global-${{ hashFiles('buildozer.spec') }}
           restore-keys: |
-            buildozer-global-v2-
             buildozer-global-
 
       - name: Cache Buildozer local directory
         uses: actions/cache@v3
         with:
           path: .buildozer
-          key: buildozer-local-${{ hashFiles('buildozer.spec') }}-v2
+          key: buildozer-local-${{ hashFiles('buildozer.spec') }}
           restore-keys: |
-            buildozer-local-v2-
             buildozer-local-
 
-      - name: Verify Java Installation
+      - name: Accept Android SDK licenses
         run: |
-          java -version
-          javac -version
-          echo "JAVA_HOME: $JAVA_HOME"
-          which java
-          which javac
-
-      - name: Initialize Buildozer (First Time Setup)
-        run: |
-          # Create Android directories if they don't exist
+          yes | buildozer android debug || true
+          # Alternative method to accept licenses
           mkdir -p ~/.android
           echo 'count=0' > ~/.android/repositories.cfg
+          yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --licenses || true
 
-          # Initialize buildozer to download Android SDK/NDK
-          buildozer android update || echo "Initial update completed with warnings"
-
-      - name: Accept Android SDK Licenses
+      - name: Build APK
         run: |
-          # Accept SDK licenses after SDK is downloaded
-          if [ -d "$HOME/.buildozer/android/platform/android-sdk/cmdline-tools/latest/bin" ]; then
-            yes | $HOME/.buildozer/android/platform/android-sdk/cmdline-tools/latest/bin/sdkmanager --licenses || echo "License acceptance completed"
-          fi
-
-          # Alternative license acceptance method
-          if [ -d "$HOME/.buildozer/android/platform/android-sdk/tools/bin" ]; then
-            yes | $HOME/.buildozer/android/platform/android-sdk/tools/bin/sdkmanager --licenses || echo "License acceptance completed"
-          fi
-
-      - name: Validate Buildozer Spec
-        run: |
-          buildozer -v android debug
-
-      - name: Build APK with Debug Information
-        run: |
-          # Set debug mode for more verbose output
-          export BUILDOZER_LOG_LEVEL=2
-          export P4A_DEBUG=1
-
-          # Ensure proper Java version
-          export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+          # Ensure Java 17 is used for the build process
+          export JAVA_HOME=$JAVA_HOME_17_X64
           export PATH=$JAVA_HOME/bin:$PATH
+          export ANDROID_SDK_ROOT=$HOME/.buildozer/android/platform/android-sdk
+          export ANDROID_HOME=$HOME/.buildozer/android/platform/android-sdk
 
-          # Final verification
-          echo "=== Build Environment ==="
-          echo "Java version: $(java -version 2>&1)"
+          # Set autotools environment variables
+          export ACLOCAL_PATH="/usr/share/aclocal:$ACLOCAL_PATH"
+          export M4PATH="/usr/share/aclocal:$M4PATH"
+
+          # Final verification of Java version
+          echo "Final Java version check:"
+          java -version
           echo "JAVA_HOME: $JAVA_HOME"
-          echo "Python version: $(python3 --version)"
-          echo "Cython version: $(cython --version)"
-          echo "Buildozer version: $(buildozer version)"
-          echo "=========================="
 
-          # Build with error handling
-          buildozer android debug || {
-            echo "Build failed. Checking for common issues..."
-            echo "=== Buildozer logs ==="
-            if [ -f .buildozer/logs/buildozer.log ]; then
-              tail -n 100 .buildozer/logs/buildozer.log
-            fi
-            echo "===================="
-            exit 1
-          }
+          # Check autotools versions
+          echo "Autotools versions:"
+          autoconf --version | head -1
+          automake --version | head -1
+          libtool --version | head -1
 
-      - name: List Built Files
-        if: success()
-        run: |
-          echo "=== Built files ==="
-          find . -name "*.apk" -type f
-          ls -la bin/ || echo "No bin directory found"
-          echo "=================="
+          # Accept any remaining licenses during build
+          echo "y" | buildozer android debug
 
       - name: Upload APK
-        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: OTPInterceptor-APK
-          path: "**/*.apk"
+          path: bin/*.apk
           retention-days: 30
-
-      - name: Upload Build Logs (on failure)
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-logs
-          path: |
-            .buildozer/logs/
-            .buildozer/android/platform/build-*/
-          retention-days: 7
