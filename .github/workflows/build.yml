@@ -46,9 +46,22 @@ jobs:
           restore-keys: |
             buildozer-local-
 
+      - name: Accept Android SDK licenses
+        run: |
+          yes | buildozer android debug || true
+          # Alternative method to accept licenses
+          mkdir -p ~/.android
+          echo 'count=0' > ~/.android/repositories.cfg
+          yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --licenses || true
+
       - name: Build APK
         run: |
-          buildozer android debug
+          export ANDROID_SDK_ROOT=$HOME/.buildozer/android/platform/android-sdk
+          export ANDROID_HOME=$HOME/.buildozer/android/platform/android-sdk
+          export PATH=$PATH:$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$ANDROID_SDK_ROOT/tools/bin
+
+          # Accept any remaining licenses during build
+          echo "y" | buildozer android debug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
