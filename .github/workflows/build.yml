@@ -11,13 +11,40 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Setup Java JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: "11"
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.9"
+
       - name: Install Build Tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential git zip unzip openjdk-11-jdk python3-pip
+          sudo apt-get install -y build-essential git zip unzip python3-pip
           python3 -m pip install --upgrade pip
           pip install cython
           pip install buildozer
+
+      - name: Cache Buildozer global directory
+        uses: actions/cache@v3
+        with:
+          path: ~/.buildozer
+          key: buildozer-global-${{ hashFiles('buildozer.spec') }}
+          restore-keys: |
+            buildozer-global-
+
+      - name: Cache Buildozer local directory
+        uses: actions/cache@v3
+        with:
+          path: .buildozer
+          key: buildozer-local-${{ hashFiles('buildozer.spec') }}
+          restore-keys: |
+            buildozer-local-
 
       - name: Build APK
         run: |
@@ -28,3 +55,4 @@ jobs:
         with:
           name: OTPInterceptor-APK
           path: bin/*.apk
+          retention-days: 30
