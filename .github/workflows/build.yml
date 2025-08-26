@@ -59,6 +59,7 @@ jobs:
           python3 -m pip install --upgrade pip setuptools wheel
           pip install --upgrade cython==0.29.33
           pip install buildozer
+          pip install scapy pyserial kivy
 
       - name: Cache Buildozer global directory
         uses: actions/cache@v3
@@ -106,6 +107,10 @@ jobs:
           if [ -d "$HOME/.buildozer/android/platform/android-sdk/tools/bin" ]; then
             yes | $HOME/.buildozer/android/platform/android-sdk/tools/bin/sdkmanager --licenses || echo "License acceptance completed"
           fi
+
+      - name: Validate Buildozer Spec
+        run: |
+          buildozer -v android debug
 
       - name: Build APK with Debug Information
         run: |
